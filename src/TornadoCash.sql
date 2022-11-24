@@ -29,10 +29,9 @@ CREATE TABLE LiquidityPool (
 
 CREATE TABLE Users (
     users_address VARCHAR2(64) NOT NULL,
-    address_network_USERs VARCHAR2(8) NOT NULL,
     valueOnWallet FLOAT NOT NULL,
     chain_idFK INTEGER NOT NULL,
-    lp_addressFK VARCHAR2(64) NOT NULL,
+    lp_addressFK VARCHAR2(64),
     PRIMARY KEY (users_address),
     FOREIGN KEY (lp_addressFK) REFERENCES LiquidityPool(lp_address),
     FOREIGN KEY (chain_idFK) REFERENCES Chain(chain_id)
@@ -78,7 +77,6 @@ INSERT INTO
 VALUES
     (
         '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8',
-        'ETH',
         1.2,
         1,
         '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1'
@@ -132,18 +130,31 @@ VALUES
 
 -- PSM Section
 
-CREATE OR REPLACE FUNCTION getLQPoolBalance(lpAddress IN VARCHAR2)
+-- CREATE OR REPLACE FUNCTION getLQPoolBalance(lpAddress IN VARCHAR2)
+--     RETURN NUMBER
+--     IS balance NUMBER(10,2);
+--     BEGIN
+--         SELECT valueRetained
+--         INTO balance
+--         FROM LIQUIDITYPOOL lp
+--         WHERE lp.LP_ADDRESS = lpAddress;
+--         RETURN(balance);.
+--     END;
+
+-- SELECT GETLQPOOLBALANCE('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1') FROM DUAL;
+
+CREATE OR REPLACE FUNCTION getUserWalletBalance(address_to_verify IN VARCHAR2)
     RETURN NUMBER
     IS balance NUMBER(10,2);
     BEGIN
-        SELECT valueRetained
+        SELECT valueOnWallet
         INTO balance
-        FROM LIQUIDITYPOOL lp
-        WHERE lp.LP_ADDRESS = lpAddress;
+        FROM Users user
+        WHERE user.USERS_ADDRESS = address_to_verify;
         RETURN(balance);
     END;
 
-SELECT GETLQPOOLBALANCE('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1') FROM DUAL;
+SELECT GETUSERWALLETBALANCE('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8') FROM dual;
 
 -- Triggers done (Need to be checked!)
 
