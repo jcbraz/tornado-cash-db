@@ -1,10 +1,11 @@
+-- Table reset
+
 DROP TABLE Chain;
-
 DROP TABLE LiquidityPool;
-
 DROP TABLE Users;
-
 DROP TABLE Transaction;
+
+-- Table struture creation
 
 CREATE TABLE Chain (
     chain_id INT NOT NULL,
@@ -14,8 +15,8 @@ CREATE TABLE Chain (
     block_explorer_url VARCHAR2(100),
     PRIMARY KEY (chain_id)
 );
-
 CREATE TABLE LiquidityPool (
+
     lp_address VARCHAR2(64) NOT NULL,
     num_users INTEGER NOT NULL,
     expectedAmountPerUsers FLOAT NOT NULL,
@@ -42,6 +43,8 @@ CREATE TABLE Transaction (
     transaction_amount FLOAT NOT NULL,
     users_encrypted_note VARCHAR2(200) NOT NULL UNIQUE
 );
+
+-- Insertion of values (testing purposes)
 
 INSERT INTO
     Chain
@@ -125,6 +128,24 @@ VALUES
         1,
         '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1'
     );
+
+
+-- PSM Section
+
+CREATE OR REPLACE FUNCTION getLQPoolBalance(lpAddress IN VARCHAR2)
+    RETURN NUMBER
+    IS balance NUMBER(10,2);
+    BEGIN
+        SELECT valueRetained
+        INTO balance
+        FROM LIQUIDITYPOOL lp
+        WHERE lp.LP_ADDRESS = lpAddress;
+        RETURN(balance);
+    END;
+
+SELECT GETLQPOOLBALANCE('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1') FROM DUAL;
+
+-- Triggers done (Need to be checked!)
 
 CREATE OR REPLACE TRIGGER verify_network
     AFTER INSERT OR UPDATE OF address_network_Users
