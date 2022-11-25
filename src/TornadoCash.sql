@@ -1,3 +1,6 @@
+-- Type defining
+
+
 -- Table reset
 
 DROP TABLE Chain;
@@ -21,18 +24,18 @@ CREATE TABLE LiquidityPool (
     num_users INTEGER NOT NULL,
     expectedAmountPerUsers FLOAT NOT NULL,
     valueRetained FLOAT NOT NULL,
-    address_network_LP VARCHAR2(8) NOT NULL,
+    maxUsers INTEGER NOT NULL,
     chain_idFK INTEGER NOT NULL,
     PRIMARY KEY (lp_address),
     FOREIGN KEY (chain_idFK) REFERENCES Chain(chain_id)
 );
 
-CREATE TABLE Users (
-    users_address VARCHAR2(64) NOT NULL,
+CREATE TABLE User (
+    user_address VARCHAR2(64) NOT NULL,
     valueOnWallet FLOAT NOT NULL,
     chain_idFK INTEGER NOT NULL,
     lp_addressFK VARCHAR2(64),
-    PRIMARY KEY (users_address),
+    PRIMARY KEY (user_address),
     FOREIGN KEY (lp_addressFK) REFERENCES LiquidityPool(lp_address),
     FOREIGN KEY (chain_idFK) REFERENCES Chain(chain_id)
 );
@@ -40,7 +43,7 @@ CREATE TABLE Users (
 CREATE TABLE Transaction (
     transaction_id INTEGER NOT NULL UNIQUE,
     transaction_amount FLOAT NOT NULL,
-    users_encrypted_note VARCHAR2(200) NOT NULL UNIQUE
+    User_encrypted_note VARCHAR2(200) NOT NULL UNIQUE
 );
 
 -- Insertion of values (testing purposes)
@@ -73,7 +76,7 @@ VALUES
     );
 
 INSERT INTO
-    Users
+    User
 VALUES
     (
         '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8',
@@ -95,7 +98,7 @@ VALUES
     );
 
 INSERT INTO
-    Users
+    User
 VALUES
     (
         '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ca6',
@@ -106,7 +109,7 @@ VALUES
     );
 
 INSERT INTO
-    Users
+    User
 VALUES
     (
         '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8',
@@ -117,7 +120,7 @@ VALUES
     );
 
 INSERT INTO
-    Users
+    User
 VALUES
     (
         '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba4',
@@ -130,37 +133,59 @@ VALUES
 
 -- PSM Section
 
--- CREATE OR REPLACE FUNCTION getLQPoolBalance(lpAddress IN VARCHAR2)
---     RETURN NUMBER
---     IS balance NUMBER(10,2);
---     BEGIN
---         SELECT valueRetained
---         INTO balance
---         FROM LIQUIDITYPOOL lp
---         WHERE lp.LP_ADDRESS = lpAddress;
---         RETURN(balance);.
---     END;
-
--- SELECT GETLQPOOLBALANCE('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1') FROM DUAL;
+-- FUNCTIONS
 
 CREATE OR REPLACE FUNCTION getUserWalletBalance(address_to_verify IN VARCHAR2)
     RETURN NUMBER
-    IS balance NUMBER(10,2);
+    IS balance NUMBER(10,8);
     BEGIN
         SELECT valueOnWallet
         INTO balance
-        FROM Users user
-        WHERE user.USERS_ADDRESS = address_to_verify;
+        FROM Users
+        WHERE USERS_ADDRESS = address_to_verify;
         RETURN(balance);
     END;
 
-SELECT GETUSERWALLETBALANCE('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8') FROM dual;
+SELECT GETUSERWALLETBALANCE('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8') FROM DUAL;
+
+CREATE OR REPLACE FUNCTION getNumberUserLP(lp_address_to_check IN VARCHAR2)
+    RETURN INTEGER
+    IS num_users INTEGER;
+    BEGIN
+        SELECT COUNT(*)
+        INTO num_users
+        FROM User
+        WHERE lp_addressFK = lp_address_to_check;
+        RETURN(num_users);
+    END;
+
+SELECT GETNUMBERUSERLP('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1') FROM DUAL;
+
+-- CREATE OR REPLACE FUNCTION verifyAddressFormat(address_to_verify IN VARCHAR2)
+--     RETURN INTEGER
+--     IS checked INTEGER;
+--     BEGIN
+--         IF (address_to_verify <> '' AND address_to_verify NOT LIKE '0x_%')
+
+
+-- PROCEDURES
+
+CREATE OR REPLACE PROCEDURE leaveLiquidityPool(LiquidityPool.lp_address%TYPE lpMixed)
+    BEGIN
+        IF (getNumberUserLP(lpMixed) != lpMixed.maxUsers)
+            raise_application_error(-20100, "Pool still has not been mixed. Waiting for more users to join in.");
+        END IF;
+        DELETE lp_addressFK
+        FROM User
+        WHERE (lp_addressFK == lpMixed);
+    END;
+
 
 -- Triggers done (Need to be checked!)
 
 CREATE OR REPLACE TRIGGER verify_network
     AFTER INSERT OR UPDATE OF address_network_Users
-    ON Users
+    ON User
     FOR EACH ROW
     PRECEDES verify_amount
 DECLARE
