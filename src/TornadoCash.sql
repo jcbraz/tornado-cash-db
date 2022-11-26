@@ -21,7 +21,6 @@ CREATE TABLE Chain (
 CREATE TABLE LiquidityPool (
 
     lp_address VARCHAR2(64) NOT NULL,
-    num_users INTEGER NOT NULL,
     expectedAmountPerUsers FLOAT NOT NULL,
     valueRetained FLOAT NOT NULL,
     maxUsers INTEGER NOT NULL,
@@ -30,7 +29,7 @@ CREATE TABLE LiquidityPool (
     FOREIGN KEY (chain_idFK) REFERENCES Chain(chain_id)
 );
 
-CREATE TABLE User (
+CREATE TABLE Users (
     user_address VARCHAR2(64) NOT NULL,
     valueOnWallet FLOAT NOT NULL,
     chain_idFK INTEGER NOT NULL,
@@ -76,7 +75,7 @@ VALUES
     );
 
 INSERT INTO
-    User
+    Users
 VALUES
     (
         '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8',
@@ -109,7 +108,7 @@ VALUES
     );
 
 INSERT INTO
-    User
+    Users
 VALUES
     (
         '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8',
@@ -120,7 +119,7 @@ VALUES
     );
 
 INSERT INTO
-    User
+    Users
 VALUES
     (
         '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba4',
@@ -154,7 +153,7 @@ CREATE OR REPLACE FUNCTION getNumberUserLP(lp_address_to_check IN VARCHAR2)
     BEGIN
         SELECT COUNT(*)
         INTO num_users
-        FROM User
+        FROM Users
         WHERE lp_addressFK = lp_address_to_check;
         RETURN(num_users);
     END;
@@ -170,22 +169,49 @@ SELECT GETNUMBERUSERLP('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1') FROM DUAL;
 
 -- PROCEDURES
 
-CREATE OR REPLACE PROCEDURE leaveLiquidityPool(LiquidityPool.lp_address%TYPE lpMixed)
+CREATE OR REPLACE TYPE LISTOFADDRESSES AS VARRAY(50) OF VARCHAR2(64);
+
+DROP TYPE LISTOFADDRESSES;
+
+CREATE OR REPLACE PROCEDURE joinLiquidityPool(addresses LISTOFADDRESSES, lpToMix LiquidityPool.lp_address%TYPE) 
+    IS maxUsersLP INTEGER;
     BEGIN
-        IF (getNumberUserLP(lpMixed) != lpMixed.maxUsers)
-            raise_application_error(-20100, "Pool still has not been mixed. Waiting for more users to join in.");
+        SELECT maxUsers INTO maxUsersLP FROM LiquidityPool lp WHERE lp.lp_address = lpToMix;
+        IF (addresses.COUNT > maxUsersLP) THEN
+            raise_application_error(-20100, 'Number of users inserted excedded the limit of users of the Liquidity Pool!');
         END IF;
-        DELETE lp_addressFK
-        FROM User
-        WHERE (lp_addressFK == lpMixed);
+        FOR i IN 1..addresses.COUNT LOOP
+            EXECUTE IMMEDIATE 'UPDATE Users SET lp_addressFK = lpToMix WHERE Users.lp_address = addresses(i)';
+        END LOOP;
     END;
+    
+SELECT JOINLIQUIDITYPOOL(LISTOFADDRESSES('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8', '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba4'), '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1') FROM DUAL; 
+
+DROP TYPE LISTOFADDRESSES;
+
+
+
+CREATE OR REPLACE PROCEDURE leaveLiquidityPool(lpMixed LiquidityPool.lp_address%TYPE) 
+    IS maxUsersMixed INTEGER;
+    BEGIN
+        SELECT maxUsers INTO maxUsersMixed FROM LiquidityPool lp WHERE lp.lp_address = lpMixed;
+        IF (GETNUMBERUSERLP(lpMixed) <> maxUsersMixed) THEN
+            raise_application_error(-20100, 'Pool still has not been mixed. Waiting for more users to join in.');
+        END IF;
+
+        UPDATE Users
+        SET lp_addressFK = NULL
+        WHERE lp_addressFK = lpMixed;
+    END;
+
+DROP PROCEDURE leaveLiquidityPool;
 
 
 -- Triggers done (Need to be checked!)
 
 CREATE OR REPLACE TRIGGER verify_network
     AFTER INSERT OR UPDATE OF address_network_Users
-    ON User
+    ON Users
     FOR EACH ROW
     PRECEDES verify_amount
 DECLARE
