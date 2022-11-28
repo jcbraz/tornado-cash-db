@@ -1,12 +1,15 @@
 -- Type defining
 
 
--- Table reset
-
+-- Reset
 DROP TABLE Chain;
 DROP TABLE LiquidityPool;
 DROP TABLE Users;
 DROP TABLE Transaction;
+DROP FUNCTION getNumberUserLP;
+DROP FUNCTION getUserWalletBalance;
+DROP PROCEDURE joinLiquidityPool;
+DROP PROCEDURE leaveLiquidityPool;
 
 -- Table struture creation
 
@@ -160,51 +163,73 @@ CREATE OR REPLACE FUNCTION getNumberUserLP(lp_address_to_check IN VARCHAR2)
 
 SELECT GETNUMBERUSERLP('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1') FROM DUAL;
 
--- CREATE OR REPLACE FUNCTION verifyAddressFormat(address_to_verify IN VARCHAR2)
---     RETURN INTEGER
---     IS checked INTEGER;
---     BEGIN
---         IF (address_to_verify <> '' AND address_to_verify NOT LIKE '0x_%')
-
 
 -- PROCEDURES
 
-CREATE OR REPLACE TYPE LISTOFADDRESSES AS VARRAY(50) OF VARCHAR2(64);
+CREATE OR REPLACE PROCEDURE joinLiquidityPool(userToJoin Users.user_address%TYPE, lpToMix LiquidityPool.lp_address%TYPE)
+    AS
+        currentUsersInLP INTEGER;
+        maxUsersLP LiquidityPool.maxUsers%TYPE;
+        currentLPAssociated Users.lp_addressFK%TYPE;
 
-DROP TYPE LISTOFADDRESSES;
+        maxUsersReached EXCEPTION;
 
-CREATE OR REPLACE PROCEDURE joinLiquidityPool(addresses LISTOFADDRESSES, lpToMix LiquidityPool.lp_address%TYPE) 
-    IS maxUsersLP INTEGER;
     BEGIN
+        SELECT COUNT(*) INTO currentUsersInLP FROM Users ut WHERE ut.lp_addressFK = lpToMix;
+        SELECT lp_addressFK INTO currentLPAssociated FROM Users ut WHERE ut.user_address = userToJoin;
         SELECT maxUsers INTO maxUsersLP FROM LiquidityPool lp WHERE lp.lp_address = lpToMix;
-        IF (addresses.COUNT > maxUsersLP) THEN
-            raise_application_error(-20100, 'Number of users inserted excedded the limit of users of the Liquidity Pool!');
+
+        IF maxUsersLP = currentUsersInLP THEN
+            RAISE maxUsersReached;
+        ELSE
+            IF currentLPAssociated IS NULL THEN
+                UPDATE Users SET lp_addressFK = lpToMix WHERE Users.user_address = userToJoin;
+            ELSE
+                raise_application_error(-20100, 'User given was already associated with another Liquidity Pool!');
+            END IF;
         END IF;
-        FOR i IN 1..addresses.COUNT LOOP
-            EXECUTE IMMEDIATE 'UPDATE Users SET lp_addressFK = lpToMix WHERE Users.lp_address = addresses(i)';
-        END LOOP;
-    END;
-    
-SELECT JOINLIQUIDITYPOOL(LISTOFADDRESSES('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8', '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba4'), '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1') FROM DUAL; 
+    EXCEPTION
+        WHEN maxUsersReached THEN
+            raise_application_error(-20001, 'The Liquidity Pool is full. Please try join another one or try again later.');
+            
+    END joinLiquidityPool;
 
-DROP TYPE LISTOFADDRESSES;
+-- Testing joinLiquidityPool
+BEGIN
+  JOINLIQUIDITYPOOL('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8', '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1');
+END;
+
+SELECT * FROM USERS;
 
 
+CREATE OR REPLACE PROCEDURE leaveLiquidityPool(lpMixed LiquidityPool.lp_address%TYPE)
+    AS
+        maxUsersMixed LiquidityPool.maxUsers%TYPE;
 
-CREATE OR REPLACE PROCEDURE leaveLiquidityPool(lpMixed LiquidityPool.lp_address%TYPE) 
-    IS maxUsersMixed INTEGER;
+        stillWaiting EXCEPTION;
+
     BEGIN
         SELECT maxUsers INTO maxUsersMixed FROM LiquidityPool lp WHERE lp.lp_address = lpMixed;
+
         IF (GETNUMBERUSERLP(lpMixed) <> maxUsersMixed) THEN
-            raise_application_error(-20100, 'Pool still has not been mixed. Waiting for more users to join in.');
+            RAISE stillWaiting;
+        ELSE
+            UPDATE Users SET lp_addressFK = NULL WHERE lp_addressFK = lpMixed;
         END IF;
+    EXCEPTION
+        WHEN stillWaiting THEN
+            raise_application_error(-20100, 'Pool still has not been mixed. Waiting for more users to join in.');
 
-        UPDATE Users
-        SET lp_addressFK = NULL
-        WHERE lp_addressFK = lpMixed;
-    END;
+    END leaveLiquidityPool;
 
-DROP PROCEDURE leaveLiquidityPool;
+-- Testing leaveLiquidityPool
+
+BEGIN
+  LEAVELIQUIDITYPOOL('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1');
+END;
+
+SELECT * FROM USERS;
+
 
 
 -- Triggers done (Need to be checked!)
