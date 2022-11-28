@@ -27,6 +27,7 @@ CREATE TABLE LiquidityPool (
     expectedAmountPerUsers FLOAT NOT NULL,
     valueRetained FLOAT NOT NULL,
     maxUsers INTEGER NOT NULL,
+    encrypted_noteLP VARCHAR2(64),
     chain_idFK INTEGER NOT NULL,
     PRIMARY KEY (lp_address),
     FOREIGN KEY (chain_idFK) REFERENCES Chain(chain_id)
@@ -36,6 +37,7 @@ CREATE TABLE Users (
     user_address VARCHAR2(64) NOT NULL,
     valueOnWallet FLOAT NOT NULL,
     chain_idFK INTEGER NOT NULL,
+    encrypted_noteUser VARCHAR2(64),
     lp_addressFK VARCHAR2(64),
     PRIMARY KEY (user_address),
     FOREIGN KEY (lp_addressFK) REFERENCES LiquidityPool(lp_address),
