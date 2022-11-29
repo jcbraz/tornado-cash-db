@@ -5,7 +5,7 @@
 DROP TABLE Chain;
 DROP TABLE LiquidityPool;
 DROP TABLE Users;
-DROP TABLE Transaction;
+DROP TABLE UsersToLP;
 DROP FUNCTION getNumberUserLP;
 DROP FUNCTION getUserWalletBalance;
 DROP PROCEDURE joinLiquidityPool;
@@ -27,7 +27,6 @@ CREATE TABLE LiquidityPool (
     expectedAmountPerUsers FLOAT NOT NULL,
     valueRetained FLOAT NOT NULL,
     maxUsers INTEGER NOT NULL,
-    encrypted_noteLP VARCHAR2(64),
     chain_idFK INTEGER NOT NULL,
     PRIMARY KEY (lp_address),
     FOREIGN KEY (chain_idFK) REFERENCES Chain(chain_id)
@@ -37,17 +36,15 @@ CREATE TABLE Users (
     user_address VARCHAR2(64) NOT NULL,
     valueOnWallet FLOAT NOT NULL,
     chain_idFK INTEGER NOT NULL,
-    encrypted_noteUser VARCHAR2(64),
-    lp_addressFK VARCHAR2(64),
     PRIMARY KEY (user_address),
-    FOREIGN KEY (lp_addressFK) REFERENCES LiquidityPool(lp_address),
     FOREIGN KEY (chain_idFK) REFERENCES Chain(chain_id)
 );
 
-CREATE TABLE Transaction (
-    transaction_id INTEGER NOT NULL UNIQUE,
-    transaction_amount FLOAT NOT NULL,
-    User_encrypted_note VARCHAR2(200) NOT NULL UNIQUE
+CREATE TABLE UsersToLP (
+    transactionId NUMBER GENERATED ALWAYS AS IDENTITY, 
+    encrypted_note VARCHAR2(200),
+    user_addressFK VARCHAR2(64) NOT NULL,
+    lp_addressFK VARCHAR2(64)
 );
 
 -- Insertion of values (testing purposes)
@@ -64,11 +61,6 @@ VALUES
     );
 
 INSERT INTO
-    Transaction
-VALUES
-    (1, 0.1, '0xm345z');
-
-INSERT INTO
     Chain
 VALUES
     (
@@ -84,9 +76,17 @@ INSERT INTO
 VALUES
     (
         '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8',
-        1.2,
-        1,
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1'
+        100,
+        1
+    );
+
+INSERT INTO
+    Users
+VALUES
+    (
+        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba4',
+        4.2,
+        1
     );
 
 INSERT INTO
@@ -97,43 +97,21 @@ VALUES
         15,
         0.1,
         10,
-        'ETHEREUM',
         1
     );
 
+
 INSERT INTO
-    User
+    UsersToLP(ENCRYPTED_NOTE, USER_ADDRESSFK, LP_ADDRESSFK)
 VALUES
     (
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ca6',
-        'SOL',
-        10,
-        2,
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A490b'
+        'aaaa', '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8', '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1'
     );
 
 INSERT INTO
-    Users
+    USERSTOLP(USER_ADDRESSFK)
 VALUES
-    (
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8',
-        'AVAX',
-        100,
-        3,
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4aa8'
-    );
-
-INSERT INTO
-    Users
-VALUES
-    (
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba4',
-        'ETH',
-        4.2,
-        1,
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1'
-    );
-
+    ('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba4');
 
 -- PSM Section
 
@@ -152,13 +130,24 @@ CREATE OR REPLACE FUNCTION getUserWalletBalance(address_to_verify IN VARCHAR2)
 
 SELECT GETUSERWALLETBALANCE('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8') FROM DUAL;
 
+-- CREATE OR REPLACE FUNCTION getNumberUserLP(lp_address_to_check IN VARCHAR2)
+--     RETURN INTEGER
+--     IS num_users INTEGER;
+--     BEGIN
+--         SELECT COUNT(*)
+--         INTO num_users
+--         FROM Users
+--         WHERE lp_addressFK = lp_address_to_check;
+--         RETURN(num_users);
+--     END;
+
 CREATE OR REPLACE FUNCTION getNumberUserLP(lp_address_to_check IN VARCHAR2)
     RETURN INTEGER
     IS num_users INTEGER;
     BEGIN
         SELECT COUNT(*)
         INTO num_users
-        FROM Users
+        FROM UsersToLP
         WHERE lp_addressFK = lp_address_to_check;
         RETURN(num_users);
     END;
@@ -168,24 +157,55 @@ SELECT GETNUMBERUSERLP('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1') FROM DUAL;
 
 -- PROCEDURES
 
+-- CREATE OR REPLACE PROCEDURE joinLiquidityPool(userToJoin Users.user_address%TYPE, lpToMix LiquidityPool.lp_address%TYPE)
+--     AS
+--         currentUsersInLP INTEGER;
+--         maxUsersLP LiquidityPool.maxUsers%TYPE;
+--         currentLPAssociated Users.lp_addressFK%TYPE;
+
+--         maxUsersReached EXCEPTION;
+
+--     BEGIN
+--         SELECT COUNT(*) INTO currentUsersInLP FROM Users ut WHERE ut.lp_addressFK = lpToMix;
+--         SELECT lp_addressFK INTO currentLPAssociated FROM Users ut WHERE ut.user_address = userToJoin;
+--         SELECT maxUsers INTO maxUsersLP FROM LiquidityPool lp WHERE lp.lp_address = lpToMix;
+
+--         IF maxUsersLP = currentUsersInLP THEN
+--             RAISE maxUsersReached;
+--         ELSE
+--             IF currentLPAssociated IS NULL THEN
+--                 UPDATE Users SET lp_addressFK = lpToMix WHERE Users.user_address = userToJoin;
+--             ELSE
+--                 raise_application_error(-20100, 'User given was already associated with another Liquidity Pool!');
+--             END IF;
+--         END IF;
+--     EXCEPTION
+--         WHEN maxUsersReached THEN
+--             raise_application_error(-20001, 'The Liquidity Pool is full. Please try join another one or try again later.');
+            
+--     END joinLiquidityPool;
+
 CREATE OR REPLACE PROCEDURE joinLiquidityPool(userToJoin Users.user_address%TYPE, lpToMix LiquidityPool.lp_address%TYPE)
     AS
         currentUsersInLP INTEGER;
         maxUsersLP LiquidityPool.maxUsers%TYPE;
-        currentLPAssociated Users.lp_addressFK%TYPE;
+        currentLPAssociated UsersToLP.lp_addressFK%TYPE;
+        generatedKey INTEGER;
 
         maxUsersReached EXCEPTION;
 
     BEGIN
-        SELECT COUNT(*) INTO currentUsersInLP FROM Users ut WHERE ut.lp_addressFK = lpToMix;
-        SELECT lp_addressFK INTO currentLPAssociated FROM Users ut WHERE ut.user_address = userToJoin;
+
+        SELECT COUNT(*) INTO currentUsersInLP FROM UsersToLP ulp WHERE ulp.lp_addressFK = lpToMix;
         SELECT maxUsers INTO maxUsersLP FROM LiquidityPool lp WHERE lp.lp_address = lpToMix;
+        SELECT lp_addressFK INTO currentLPAssociated FROM UsersToLP ulp WHERE ulp.user_addressFK = userToJoin;
 
         IF maxUsersLP = currentUsersInLP THEN
             RAISE maxUsersReached;
         ELSE
             IF currentLPAssociated IS NULL THEN
-                UPDATE Users SET lp_addressFK = lpToMix WHERE Users.user_address = userToJoin;
+                UPDATE UsersToLP SET encrypted_note = DBMS_RANDOM.VALUE WHERE UsersToLP.user_addressFK = userToJoin;
+                UPDATE UsersToLP SET lp_addressFK = lpToMix WHERE UsersToLP.user_addressFK = userToJoin;
             ELSE
                 raise_application_error(-20100, 'User given was already associated with another Liquidity Pool!');
             END IF;
@@ -197,8 +217,9 @@ CREATE OR REPLACE PROCEDURE joinLiquidityPool(userToJoin Users.user_address%TYPE
     END joinLiquidityPool;
 
 -- Testing joinLiquidityPool
+
 BEGIN
-  JOINLIQUIDITYPOOL('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8', '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1');
+  JOINLIQUIDITYPOOL('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba4', '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1');
 END;
 
 SELECT * FROM USERS;
@@ -216,7 +237,8 @@ CREATE OR REPLACE PROCEDURE leaveLiquidityPool(lpMixed LiquidityPool.lp_address%
         IF (GETNUMBERUSERLP(lpMixed) <> maxUsersMixed) THEN
             RAISE stillWaiting;
         ELSE
-            UPDATE Users SET lp_addressFK = NULL WHERE lp_addressFK = lpMixed;
+            UPDATE UsersToLP SET encrypted_note = NULL WHERE lp_addressFK = lpMixed;
+            UPDATE UsersToLP SET lp_addressFK = NULL WHERE lp_addressFK = lpMixed;
         END IF;
     EXCEPTION
         WHEN stillWaiting THEN
@@ -226,11 +248,13 @@ CREATE OR REPLACE PROCEDURE leaveLiquidityPool(lpMixed LiquidityPool.lp_address%
 
 -- Testing leaveLiquidityPool
 
+UPDATE LIQUIDITYPOOL SET maxUsers = 1 WHERE LP_ADDRESS = '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1';
+
 BEGIN
   LEAVELIQUIDITYPOOL('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1');
 END;
 
-SELECT * FROM USERS;
+SELECT * FROM USERSTOLP;
 
 
 
