@@ -1,10 +1,17 @@
+-- Type defining
+
+
+-- Reset
 DROP TABLE Chain;
-
 DROP TABLE LiquidityPool;
-
 DROP TABLE Users;
-
 DROP TABLE Transaction;
+DROP FUNCTION getNumberUserLP;
+DROP FUNCTION getUserWalletBalance;
+DROP PROCEDURE joinLiquidityPool;
+DROP PROCEDURE leaveLiquidityPool;
+
+-- Table struture creation
 
 CREATE TABLE Chain (
     chain_id INT NOT NULL,
@@ -14,34 +21,38 @@ CREATE TABLE Chain (
     block_explorer_url VARCHAR2(100),
     PRIMARY KEY (chain_id)
 );
-
 CREATE TABLE LiquidityPool (
+
     lp_address VARCHAR2(64) NOT NULL,
-    num_users INTEGER NOT NULL,
-    expectedAmountPerUsers FLOAT NOT NULL,
+    expectedAmountPerUser FLOAT NOT NULL,
     valueRetained FLOAT NOT NULL,
-    address_network_LP VARCHAR2(8) NOT NULL,
+    maxUsers INTEGER NOT NULL,
+    encrypted_noteLP VARCHAR2(64),
     chain_idFK INTEGER NOT NULL,
     PRIMARY KEY (lp_address),
     FOREIGN KEY (chain_idFK) REFERENCES Chain(chain_id)
 );
 
 CREATE TABLE Users (
-    users_address VARCHAR2(64) NOT NULL,
-    address_network_USERs VARCHAR2(8) NOT NULL,
+    user_address VARCHAR2(64) NOT NULL,
     valueOnWallet FLOAT NOT NULL,
     chain_idFK INTEGER NOT NULL,
-    lp_addressFK VARCHAR2(64) NOT NULL,
-    PRIMARY KEY (users_address),
+    encrypted_noteUser VARCHAR2(64),
+    lp_addressFK VARCHAR2(64),
+    PRIMARY KEY (user_address),
     FOREIGN KEY (lp_addressFK) REFERENCES LiquidityPool(lp_address),
     FOREIGN KEY (chain_idFK) REFERENCES Chain(chain_id)
 );
 
-CREATE TABLE Transaction (
-    transaction_id INTEGER NOT NULL UNIQUE,
-    transaction_amount FLOAT NOT NULL,
-    users_encrypted_note VARCHAR2(200) NOT NULL UNIQUE
+
+CREATE TABLE UsersToLP (
+    transactionId NUMBER NOT NULL GENERATED ALWAYS AS IDENTITY,
+    encrypted_note INTEGER,
+    user_addressFK VARCHAR2(64) NOT NULL,
+    lp_addressFK VARCHAR2(64)
 );
+
+-- Insertion of values (testing purposes)
 
 INSERT INTO
     Chain
@@ -75,7 +86,6 @@ INSERT INTO
 VALUES
     (
         '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8',
-        'ETH',
         1.2,
         1,
         '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1'
@@ -94,7 +104,7 @@ VALUES
     );
 
 INSERT INTO
-    Users
+    User
 VALUES
     (
         '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ca6',
@@ -125,31 +135,3 @@ VALUES
         1,
         '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1'
     );
-
-CREATE OR REPLACE TRIGGER verify_network
-    AFTER INSERT OR UPDATE OF address_network_Users
-    ON Users
-    FOR EACH ROW
-    PRECEDES verify_amount
-DECLARE
-    l_user_address VARCHAR2(64) := EXTRACT(address_network_USERs FROM Users);
-    l_lp_address VARCHAR2(64) := EXTRACT(address_network_LP FROM LIQUIDITYPOOL);
-BEGIN
-    IF l_user_address <> l_lp_address THEN
-        raise_application_error(-20100, 'Cannot execute transaction with addresses from different networks');
-    END IF;
-END;
-
-CREATE OR REPLACE TRIGGER verify_amount
-    AFTER INSERT OR UPDATE OF transaction_amount
-    ON Transaction
-    FOR EACH ROW
-    FOLLOWS verify_network
-DECLARE
-    l_transaction_amount FLOAT := EXTRACT(transaction_amount FROM Transaction);
-    l_expected_amount FLOAT := EXTRACT(expectedAmountPerUser FROM LIQUIDITYPOOL); 
-BEGIN
-    IF l_transaction_amount <> l_expected_amount THEN
-        raise_application_error(-20100, 'Cannot execute transaction with addresses from different networks');
-    END IF;
-END;
