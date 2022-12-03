@@ -27,125 +27,57 @@ CREATE TABLE LiquidityPool (
     expectedAmountPerUser FLOAT NOT NULL,
     valueRetained FLOAT NOT NULL,
     maxUsers INTEGER NOT NULL,
+    transaction_history VARCHAR2(32767),
     chain_idFK INTEGER NOT NULL,
     PRIMARY KEY (lp_address),
+    CONSTRAINT ensure_json CHECK (transaction_history IS JSON),
     FOREIGN KEY (chain_idFK) REFERENCES Chain(chain_id)
 );
 
 CREATE TABLE Users (
     user_address VARCHAR2(64) NOT NULL,
     valueOnWallet FLOAT NOT NULL,
+    transaction_history VARCHAR2(32767),
     chain_idFK INTEGER NOT NULL,
     PRIMARY KEY (user_address),
+    CONSTRAINT ensure_json CHECK (transaction_history IS JSON),
     FOREIGN KEY (chain_idFK) REFERENCES Chain(chain_id)
 );
 
 
 CREATE TABLE UsersToLP (
-    transactionId NUMBER NOT NULL GENERATED ALWAYS AS IDENTITY,
+    transactionId NUMBER GENERATED ALWAYS AS IDENTITY,
     encrypted_note INTEGER,
     user_addressFK VARCHAR2(64) NOT NULL,
     lp_addressFK VARCHAR2(64)
 );
 
--- Insertion of values (testing purposes)
-
-INSERT INTO
-    Chain
-VALUES
-    (
-        1,
-        'ETHEREUM',
-        'https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
-        'ETH',
-        'https://etherscan.io'
-    );
-
-INSERT INTO
-    Users
-VALUES
-    (
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8',
-        100,
-        1
-    );
-
-INSERT INTO
-    Users
-VALUES
-    (
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba4',
-        4.2,
-        1
-    );
-
-INSERT INTO
-    LiquidityPool
-VALUES
-    (
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1',
-        15,
-        0.1,
-        10,
-        1
-    );
-
-
-INSERT INTO
-    UsersToLP(ENCRYPTED_NOTE, USER_ADDRESSFK, LP_ADDRESSFK)
-VALUES
-    (
-        'aaaa', '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8', '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1'
-    );
-
-INSERT INTO
-    USERSTOLP(USER_ADDRESSFK)
-VALUES
-    ('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba4');
-
-
-
-
--- Analytics
-
--- Users ranked by their valueOnWallet in a specific Chain
-SELECT user_address, valueOnWallet, chain_idFK, 
-    RANK() OVER (PARTITION BY user_address ORDER BY valueOnWallet) RANK
-    FROM Users WHERE chain_idFK = 1
-    ORDER BY RANK, chain_idFK;
-
--- Show users that currently are in a Liquidity Pool
-CREATE OR REPLACE PROCEDURE printUsersInLPs IS
-
-    CURSOR getUsersInLP IS
-    SELECT user_addressFK, lp_addressFK
-    FROM UsersToLP WHERE lp_addressFK <> NULL
-    ORDER BY lp_addressFK;
-
+-- Trigger to test JSON views and to grant integrity on the historical data inserted (User Table)
+CREATE OR REPLACE TRIGGER secureTransactionDataUser
+    BEFORE INSERT OR UPDATE OF transaction_history
+    ON Users
+    FOR EACH ROW
+    DECLARE new_source VARCHAR2(64);
     BEGIN
-        FOR userInlp IN getUsersInLP LOOP
-            DBMS_OUTPUT.PUT_LINE ('User: ' || userInlp.user_addressFK || ' '  || userInlp.lp_addressFK);
-        END LOOP;
+        SELECT ut.transaction_history.Source INTO new_source FROM Users ut WHERE ut.USER_ADDRESS = :old.user_address;
+        IF :old.user_address <> new_source THEN
+            raise_application_error(-20100, 'The data being inserted is not coerent with the existing data');
+        END IF;
     END;
 
--- Testing printUsersInLPs (execute only the cursor down to get the print)
-SET SERVEROUTPUT ON;
-BEGIN
-    PRINTUSERSPERLP;
-END;
+-- Trigger to test JSON views and to grant integrity on the historical data inserted (Liquidity Pool Table)
+CREATE OR REPLACE TRIGGER secureTransactionDataLP
+    BEFORE INSERT OR UPDATE OF transaction_history
+    ON LiquidityPool
+    FOR EACH ROW
+    DECLARE new_source VARCHAR2(64);
+    BEGIN
+        SELECT lp.transaction_history.Source INTO new_source FROM LiquidityPool lp WHERE lp.lp_address = :old.lp_address;
+        IF :old.lp_address <> new_source THEN
+            raise_application_error(-20100, 'The data being inserted is not coerent with the existing data');
+        END IF;
+    END;
 
-
--- Organize Liquidity Pools in levels based on the value retained using recursive views
-WITH RatioMaxUsersLP(ad, amount, retained, maxUsers, chain, ratio) AS 
-(
-    SELECT lp_address, expectedAmountPerUser. valueRetained, maxUsers, chain_idFK, 0 AS ratio FROM LiquidityPool
-    UNION ALL
-    SELECT new.lp_address, lp.expectedAmountPerUser, lp.valueRetained, lp.maxUsers, lp.chain_idFK, new.ratio + 1
-    FROM LiquidityPool lp
-    INNER JOIN RatioMaxUsersLP new
-    ON lp.chain_idFK = new.chain_idFK
-    WHERE (lp.valueRetained > new.valueRetained + 0.5)
-)
-
-SELECT lp_address, expectedAmountPerUser, valueRetained, maxUsers, chain_idFK, ratio FROM RatioMaxUsersLP
-
+-- Test JSON views
+SELECT ut.transaction_history.Source FROM Users ut;
+SELECT lp.transaction_history.Source FROM LiquidityPool lp;
