@@ -1,10 +1,17 @@
+-- Type defining
+
+
+-- Reset
 DROP TABLE Chain;
-
 DROP TABLE LiquidityPool;
-
 DROP TABLE Users;
+DROP TABLE UsersToLP;
+DROP FUNCTION getNumberUserLP;
+DROP FUNCTION getUserWalletBalance;
+DROP PROCEDURE joinLiquidityPool;
+DROP PROCEDURE leaveLiquidityPool;
 
-DROP TABLE Transaction;
+-- Table struture creation
 
 CREATE TABLE Chain (
     chain_id INT NOT NULL,
@@ -14,142 +21,48 @@ CREATE TABLE Chain (
     block_explorer_url VARCHAR2(100),
     PRIMARY KEY (chain_id)
 );
-
 CREATE TABLE LiquidityPool (
+
     lp_address VARCHAR2(64) NOT NULL,
-    num_users INTEGER NOT NULL,
-    expectedAmountPerUsers FLOAT NOT NULL,
+    expectedAmountPerUser FLOAT NOT NULL,
     valueRetained FLOAT NOT NULL,
-    address_network_LP VARCHAR2(8) NOT NULL,
+    maxUsers INTEGER NOT NULL,
     chain_idFK INTEGER NOT NULL,
     PRIMARY KEY (lp_address),
     FOREIGN KEY (chain_idFK) REFERENCES Chain(chain_id)
 );
 
 CREATE TABLE Users (
-    users_address VARCHAR2(64) NOT NULL,
-    address_network_USERs VARCHAR2(8) NOT NULL,
+    user_address VARCHAR2(64) NOT NULL,
     valueOnWallet FLOAT NOT NULL,
+    transaction_history VARCHAR2(32767),
     chain_idFK INTEGER NOT NULL,
-    lp_addressFK VARCHAR2(64) NOT NULL,
-    PRIMARY KEY (users_address),
-    FOREIGN KEY (lp_addressFK) REFERENCES LiquidityPool(lp_address),
+    PRIMARY KEY (user_address),
+    CONSTRAINT ensure_json CHECK (transaction_history IS JSON),
     FOREIGN KEY (chain_idFK) REFERENCES Chain(chain_id)
 );
 
-CREATE TABLE Transaction (
-    transaction_id INTEGER NOT NULL UNIQUE,
-    transaction_amount FLOAT NOT NULL,
-    users_encrypted_note VARCHAR2(200) NOT NULL UNIQUE
+
+CREATE TABLE UsersToLP (
+    transactionId NUMBER GENERATED ALWAYS AS IDENTITY,
+    encrypted_note INTEGER,
+    user_addressFK VARCHAR2(64) NOT NULL,
+    lp_addressFK VARCHAR2(64)
 );
 
-INSERT INTO
-    Chain
-VALUES
-    (
-        1,
-        'ETHEREUM',
-        'https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
-        'ETH',
-        'https://etherscan.io'
-    );
-
-INSERT INTO
-    Transaction
-VALUES
-    (1, 0.1, '0xm345z');
-
-INSERT INTO
-    Chain
-VALUES
-    (
-        1,
-        'ETHEREUM',
-        'https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
-        'ETH',
-        'https://etherscan.io'
-    );
-
-INSERT INTO
-    Users
-VALUES
-    (
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8',
-        'ETH',
-        1.2,
-        1,
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1'
-    );
-
-INSERT INTO
-    LiquidityPool
-VALUES
-    (
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1',
-        15,
-        0.1,
-        10,
-        'ETHEREUM',
-        1
-    );
-
-INSERT INTO
-    Users
-VALUES
-    (
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ca6',
-        'SOL',
-        10,
-        2,
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A490b'
-    );
-
-INSERT INTO
-    Users
-VALUES
-    (
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8',
-        'AVAX',
-        100,
-        3,
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4aa8'
-    );
-
-INSERT INTO
-    Users
-VALUES
-    (
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba4',
-        'ETH',
-        4.2,
-        1,
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1'
-    );
-
-CREATE OR REPLACE TRIGGER verify_network
-    AFTER INSERT OR UPDATE OF address_network_Users
+-- Trigger to test JSON views and to grant integrity on the historical data inserted
+CREATE OR REPLACE TRIGGER secureTransactionData
+    BEFORE INSERT OR UPDATE OF transaction_history
     ON Users
     FOR EACH ROW
-    PRECEDES verify_amount
-DECLARE
-    l_user_address VARCHAR2(64) := EXTRACT(address_network_USERs FROM Users);
-    l_lp_address VARCHAR2(64) := EXTRACT(address_network_LP FROM LIQUIDITYPOOL);
-BEGIN
-    IF l_user_address <> l_lp_address THEN
-        raise_application_error(-20100, 'Cannot execute transaction with addresses from different networks');
-    END IF;
-END;
+    DECLARE new_source VARCHAR2(64);
+    BEGIN
+        SELECT ut.transaction_history.Source INTO new_source FROM Users ut WHERE ut.USER_ADDRESS = :old.user_address;
+        IF :old.user_address <> new_source THEN
+            raise_application_error(-20100, 'The data being inserted is not coerent with the existing data');
+        END IF;
+    END;
 
-CREATE OR REPLACE TRIGGER verify_amount
-    AFTER INSERT OR UPDATE OF transaction_amount
-    ON Transaction
-    FOR EACH ROW
-    FOLLOWS verify_network
-DECLARE
-    l_transaction_amount FLOAT := EXTRACT(transaction_amount FROM Transaction);
-    l_expected_amount FLOAT := EXTRACT(expectedAmountPerUser FROM LIQUIDITYPOOL); 
-BEGIN
-    IF l_transaction_amount <> l_expected_amount THEN
-        raise_application_error(-20100, 'Cannot execute transaction with addresses from different networks');
-    END IF;
-END;
+-- Test JSON views
+SELECT ut.transaction_history.Source FROM Users ut;
+--
