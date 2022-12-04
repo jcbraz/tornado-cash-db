@@ -90,3 +90,15 @@ INSERT INTO
     USERSTOLP(USER_ADDRESSFK)
 VALUES
     ('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba4');
+
+
+-- Nested Table
+INSERT INTO Rating(rating_time) VALUES (TO_DATE('17/12/2015', 'DD/MM/YYYY'));
+
+UPDATE Rating
+    SET unbanned_users = rated_users(rated_user('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8', 'false')),
+        banned_users = rated_users(rated_user('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba4', 'true'))
+    WHERE rating_time = TO_DATE('17/12/2015', 'DD/MM/YYYY');
+
+-- Testing Nested Table
+SELECT * FROM Rating;
