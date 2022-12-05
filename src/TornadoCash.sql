@@ -18,7 +18,6 @@ CREATE TABLE Chain (
     block_explorer_url VARCHAR2(100),
     PRIMARY KEY (chain_id)
 );
-
 CREATE TABLE LiquidityPool (
 
     lp_address VARCHAR2(64) NOT NULL,
@@ -60,6 +59,51 @@ CREATE TABLE UsersToLP (
     user_addressFK VARCHAR2(64) NOT NULL,
     lp_addressFK VARCHAR2(64)
 );
+
+
+-- Analytics
+
+-- Users ranked by their valueOnWallet in a specific Chain
+SELECT user_address, valueOnWallet, chain_idFK, 
+    RANK() OVER (PARTITION BY user_address ORDER BY valueOnWallet) RANK
+    FROM Users WHERE chain_idFK = 1
+    ORDER BY RANK, chain_idFK;
+
+-- Show users that currently are in a Liquidity Pool
+CREATE OR REPLACE PROCEDURE printUsersInLPs IS
+
+    CURSOR getUsersInLP IS
+    SELECT user_addressFK, lp_addressFK
+    FROM UsersToLP WHERE lp_addressFK <> NULL
+    ORDER BY lp_addressFK;
+
+    BEGIN
+        FOR userInlp IN getUsersInLP LOOP
+            DBMS_OUTPUT.PUT_LINE ('User: ' || userInlp.user_addressFK || ' '  || userInlp.lp_addressFK);
+        END LOOP;
+    END;
+
+-- Testing printUsersInLPs (execute only the cursor down to get the print)
+SET SERVEROUTPUT ON;
+BEGIN
+    PRINTUSERSPERLP;
+END;
+
+
+-- Organize Liquidity Pools in levels based on the value retained using recursive views
+WITH RatioMaxUsersLP(ad, amount, retained, maxUsers, chain, ratio) AS 
+(
+    SELECT lp_address, expectedAmountPerUser. valueRetained, maxUsers, chain_idFK, 0 AS ratio FROM LiquidityPool
+    UNION ALL
+    SELECT new.lp_address, lp.expectedAmountPerUser, lp.valueRetained, lp.maxUsers, lp.chain_idFK, new.ratio + 1
+    FROM LiquidityPool lp
+    INNER JOIN RatioMaxUsersLP new
+    ON lp.chain_idFK = new.chain_idFK
+    WHERE (lp.valueRetained > new.valueRetained + 0.5)
+)
+
+SELECT lp_address, expectedAmountPerUser, valueRetained, maxUsers, chain_idFK, ratio FROM RatioMaxUsersLP
+
 
 -- Triggers done
 
