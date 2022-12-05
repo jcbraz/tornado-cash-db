@@ -79,17 +79,6 @@ CREATE OR REPLACE FUNCTION getUserWalletBalance(address_to_verify IN VARCHAR2)
 
 SELECT GETUSERWALLETBALANCE('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8') FROM DUAL;
 
--- CREATE OR REPLACE FUNCTION getNumberUserLP(lp_address_to_check IN VARCHAR2)
---     RETURN INTEGER
---     IS num_users INTEGER;
---     BEGIN
---         SELECT COUNT(*)
---         INTO num_users
---         FROM Users
---         WHERE lp_addressFK = lp_address_to_check;
---         RETURN(num_users);
---     END;
-
 CREATE OR REPLACE FUNCTION getNumberUserLP(lp_address_to_check IN VARCHAR2)
     RETURN INTEGER
     IS num_users INTEGER;
