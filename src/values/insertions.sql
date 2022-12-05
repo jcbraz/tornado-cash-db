@@ -75,6 +75,56 @@ VALUES
         15,
         0.1,
         10,
+        '{
+            "Hash": "0x5ca21bdbc9b261bc5e6e91e3d9c11c332cd2d4c331e76f192cd93ca2b0c330ff",
+            "Status": "Sucess",
+            "Block": 15528241,
+            "Timestamp": "Sep-13-2022 05:33:55 PM +UTC",
+            "Source": "0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1",
+            "Destination": "0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba4",
+            "Value": 0.45848,
+            "Fee": {
+                "Payed": 0.000252718733085,
+                "Base": 0.0000000119,
+                "Max": 0.0000001214,
+                "Max Priority": 0.00000000238
+            },
+            "Prices": {
+                "Gas Price": 0.000000012034225385,
+                "Ether Price": 1574.56
+            }
+        }',
+        1
+    );
+
+
+INSERT INTO
+    LiquidityPool
+VALUES
+    (
+        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bh9',
+        20,
+        1,
+        20,
+        '{
+            "Hash": "0x5ca21bdbc9b261bc5e6e91e3d9c11c332cd2d4c331e76f192cd93ca2b0c330fh",
+            "Status": "Sucess",
+            "Block": 15528244,
+            "Timestamp": "Sep-13-2022 05:33:55 PM +UTC",
+            "Source": "0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1",
+            "Destination": "0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba4",
+            "Value": 0.45848,
+            "Fee": {
+                "Payed": 0.000252718733085,
+                "Base": 0.0000000119,
+                "Max": 0.0000001214,
+                "Max Priority": 0.00000000238
+            },
+            "Prices": {
+                "Gas Price": 0.000000012034225385,
+                "Ether Price": 1574.56
+            }
+        }',
         1
     );
 
