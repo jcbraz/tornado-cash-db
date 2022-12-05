@@ -1,6 +1,3 @@
--- Type defining
-
-
 -- Reset
 DROP TABLE Chain;
 DROP TABLE LiquidityPool;
@@ -10,6 +7,7 @@ DROP FUNCTION getNumberUserLP;
 DROP FUNCTION getUserWalletBalance;
 DROP PROCEDURE joinLiquidityPool;
 DROP PROCEDURE leaveLiquidityPool;
+DROP TRIGGER secureTransactionData;
 
 -- Table struture creation
 
@@ -24,19 +22,36 @@ CREATE TABLE Chain (
 CREATE TABLE LiquidityPool (
 
     lp_address VARCHAR2(64) NOT NULL,
-    expectedAmountPerUsers FLOAT NOT NULL,
+    expectedAmountPerUser FLOAT NOT NULL,
     valueRetained FLOAT NOT NULL,
     maxUsers INTEGER NOT NULL,
+    transaction_history VARCHAR2(32767),
     chain_idFK INTEGER NOT NULL,
     PRIMARY KEY (lp_address),
+    CONSTRAINT ensure_json CHECK (transaction_history IS JSON),
     FOREIGN KEY (chain_idFK) REFERENCES Chain(chain_id)
 );
 
 CREATE TABLE Users (
     user_address VARCHAR2(64) NOT NULL,
     valueOnWallet FLOAT NOT NULL,
+    transaction_history VARCHAR2(32767),
     chain_idFK INTEGER NOT NULL,
     PRIMARY KEY (user_address),
+    CONSTRAINT ensure_json CHECK (transaction_history IS JSON),
+    FOREIGN KEY (chain_idFK) REFERENCES Chain(chain_id)
+);
+
+
+CREATE TABLE LiquidityPool (
+    lp_address VARCHAR2(64) NOT NULL,
+    expectedAmountPerUser FLOAT NOT NULL,
+    valueRetained FLOAT NOT NULL,
+    maxUsers INTEGER NOT NULL,
+    transaction_history VARCHAR2(32767),
+    chain_idFK INTEGER NOT NULL,
+    PRIMARY KEY (lp_address),
+    CONSTRAINT ensure_json CHECK (transaction_history IS JSON),
     FOREIGN KEY (chain_idFK) REFERENCES Chain(chain_id)
 );
 
@@ -46,72 +61,6 @@ CREATE TABLE UsersToLP (
     user_addressFK VARCHAR2(64) NOT NULL,
     lp_addressFK VARCHAR2(64)
 );
-
--- Insertion of values (testing purposes)
-
-INSERT INTO
-    Chain
-VALUES
-    (
-        1,
-        'ETHEREUM',
-        'https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
-        'ETH',
-        'https://etherscan.io'
-    );
-
-INSERT INTO
-    Chain
-VALUES
-    (
-        1,
-        'ETHEREUM',
-        'https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
-        'ETH',
-        'https://etherscan.io'
-    );
-
-INSERT INTO
-    Users
-VALUES
-    (
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8',
-        100,
-        1
-    );
-
-INSERT INTO
-    Users
-VALUES
-    (
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba4',
-        4.2,
-        1
-    );
-
-INSERT INTO
-    LiquidityPool
-VALUES
-    (
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1',
-        15,
-        0.1,
-        10,
-        1
-    );
-
-
-INSERT INTO
-    UsersToLP(ENCRYPTED_NOTE, USER_ADDRESSFK, LP_ADDRESSFK)
-VALUES
-    (
-        'aaaa', '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8', '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1'
-    );
-
-INSERT INTO
-    USERSTOLP(USER_ADDRESSFK)
-VALUES
-    ('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba4');
 
 -- PSM Section
 
@@ -156,34 +105,6 @@ SELECT GETNUMBERUSERLP('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1') FROM DUAL;
 
 
 -- PROCEDURES
-
--- CREATE OR REPLACE PROCEDURE joinLiquidityPool(userToJoin Users.user_address%TYPE, lpToMix LiquidityPool.lp_address%TYPE)
---     AS
---         currentUsersInLP INTEGER;
---         maxUsersLP LiquidityPool.maxUsers%TYPE;
---         currentLPAssociated Users.lp_addressFK%TYPE;
-
---         maxUsersReached EXCEPTION;
-
---     BEGIN
---         SELECT COUNT(*) INTO currentUsersInLP FROM Users ut WHERE ut.lp_addressFK = lpToMix;
---         SELECT lp_addressFK INTO currentLPAssociated FROM Users ut WHERE ut.user_address = userToJoin;
---         SELECT maxUsers INTO maxUsersLP FROM LiquidityPool lp WHERE lp.lp_address = lpToMix;
-
---         IF maxUsersLP = currentUsersInLP THEN
---             RAISE maxUsersReached;
---         ELSE
---             IF currentLPAssociated IS NULL THEN
---                 UPDATE Users SET lp_addressFK = lpToMix WHERE Users.user_address = userToJoin;
---             ELSE
---                 raise_application_error(-20100, 'User given was already associated with another Liquidity Pool!');
---             END IF;
---         END IF;
---     EXCEPTION
---         WHEN maxUsersReached THEN
---             raise_application_error(-20001, 'The Liquidity Pool is full. Please try join another one or try again later.');
-            
---     END joinLiquidityPool;
 
 CREATE OR REPLACE PROCEDURE joinLiquidityPool(userToJoin Users.user_address%TYPE, lpToMix LiquidityPool.lp_address%TYPE)
     AS
@@ -256,34 +177,57 @@ END;
 
 SELECT * FROM USERSTOLP;
 
+-- JSON 
 
-
--- Triggers done (Need to be checked!)
-
-CREATE OR REPLACE TRIGGER verify_network
-    AFTER INSERT OR UPDATE OF address_network_Users
+-- Trigger to test JSON views and to grant integrity on the historical data inserted (User Table)
+CREATE OR REPLACE TRIGGER secureTransactionDataUser
+    BEFORE INSERT OR UPDATE OF transaction_history
     ON Users
     FOR EACH ROW
-    PRECEDES verify_amount
-DECLARE
-    l_user_address VARCHAR2(64) := EXTRACT(address_network_USERs FROM Users);
-    l_lp_address VARCHAR2(64) := EXTRACT(address_network_LP FROM LIQUIDITYPOOL);
-BEGIN
-    IF l_user_address <> l_lp_address THEN
-        raise_application_error(-20100, 'Cannot execute transaction with addresses from different networks');
-    END IF;
-END;
+    DECLARE new_source VARCHAR2(64);
+    BEGIN
+        SELECT ut.transaction_history.Source INTO new_source FROM Users ut WHERE ut.USER_ADDRESS = :old.user_address;
+        IF :old.user_address <> new_source THEN
+            raise_application_error(-20100, 'The data being inserted is not coerent with the existing data');
+        END IF;
+    END;
 
-CREATE OR REPLACE TRIGGER verify_amount
-    AFTER INSERT OR UPDATE OF transaction_amount
-    ON Transaction
+-- Trigger to test JSON views and to grant integrity on the historical data inserted (Liquidity Pool Table)
+CREATE OR REPLACE TRIGGER secureTransactionDataLP
+    BEFORE INSERT OR UPDATE OF transaction_history
+    ON LiquidityPool
     FOR EACH ROW
-    FOLLOWS verify_network
-DECLARE
-    l_transaction_amount FLOAT := EXTRACT(transaction_amount FROM Transaction);
-    l_expected_amount FLOAT := EXTRACT(expectedAmountPerUser FROM LIQUIDITYPOOL); 
-BEGIN
-    IF l_transaction_amount <> l_expected_amount THEN
-        raise_application_error(-20100, 'Cannot execute transaction with addresses from different networks');
-    END IF;
-END;
+    DECLARE new_source VARCHAR2(64);
+    BEGIN
+        SELECT lp.transaction_history.Source INTO new_source FROM LiquidityPool lp WHERE lp.lp_address = :old.lp_address;
+        IF :old.lp_address <> new_source THEN
+            raise_application_error(-20100, 'The data being inserted is not coerent with the existing data');
+        END IF;
+    END;
+
+-- Test JSON views
+SELECT ut.transaction_history.Source FROM Users ut;
+SELECT lp.transaction_history.Source FROM LiquidityPool lp;
+
+
+--  OBJECT EXTENSION SECTION
+
+-- Type defining
+CREATE TYPE rated_user AS OBJECT (
+    rated_user_address VARCHAR2(64),
+    analysed VARCHAR2(5)
+);
+
+CREATE TYPE rated_users AS TABLE OF rated_user;
+
+-- Applying types
+CREATE TABLE Rating (
+    rating_time DATE,
+    unbanned_users rated_users,
+    banned_users rated_users)
+NESTED TABLE unbanned_users STORE AS unbanned_users_nt,
+NESTED TABLE banned_users STORE AS banned_users_nt;
+
+CREATE INDEX unbanned_users_idx ON unbanned_users_nt(rated_user_address);
+CREATE INDEX banned_users_idx ON banned_users_nt(rated_user_address);
+
