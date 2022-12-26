@@ -17,7 +17,7 @@ CREATE TABLE LiquidityPool (
     transaction_historyLP VARCHAR2(32767),
     chain_idFK INTEGER NOT NULL,
     PRIMARY KEY (lp_address),
-    CONSTRAINT ensure_jsonLP CHECK (transaction_historyLP IS JSON),
+    CONSTRAINT ensure_jsonLPLP CHECK (transaction_historyLP IS JSON),
     FOREIGN KEY (chain_idFK) REFERENCES Chain(chain_id)
 );
 
