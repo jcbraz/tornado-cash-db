@@ -20,7 +20,7 @@ VALUES
         'https://mainnet.optimism.io',
         'OP',
         'https://optimistic.etherscan.io'
-    )
+    );
 
 INSERT INTO
     Users
@@ -78,62 +78,59 @@ VALUES
         1
     );
 
-INSERT INTO
+INSERT INTO 
     Users
-VALUES
-    (
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ll1',
-        0.1,
-        '{
-            "Hash": "0x5ca21bdbc,
-            "Status": "Sucess",
-            "Block": 15528229,
-            "Timestamp": "Sep-13-2022 05:33:55 PM +UTC",
-            "Source": "0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ll1",
-            "Destination": "0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c46G4ga1",
-            "Value": 0.45848,
-            "Fee": {
-                "Payed": 0.011252718733085,
-                "Base": 0.009119012312,
-                "Max": 0.1813135433,
-                "Max Priority": 0.20000000238
-            },
-            "Prices": {
-                "Gas Price": 0.01543212132,
-                "OP Price": 1.09"
-            }
-        }',
-        10
-    );
+VALUES (
+    '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ll1',
+    5,
+    '{
+        "Hash": "0x5ca21bdbc",
+        "Status": "Success",
+        "Block": 15528229,
+        "Timestamp": "Sep-13-2022 05:33:55 PM +UTC",
+        "Source": "0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ll1",
+        "Destination": "0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c46G4ga1",
+        "Value": 0.45848,
+        "Fee": {
+            "Payed": 0.011252718733085,
+            "Base": 0.009119012312,
+            "Max": 0.1813135433,
+            "Max Priority": 0.20000000238
+        },
+        "Prices": {
+            "Gas Price": 0.01543212132,
+            "OP Price": 1.09
+        }
+    }',
+    10
+);
 
-INSERT INTO
+INSERT INTO 
     Users
-VALUES
-    (
-        '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4df3',
-        0.1,
-        '{
-            "Hash": "0x5ca21bdbc,
-            "Status": "Sucess",
-            "Block": 15528229,
-            "Timestamp": "Sep-13-2022 05:33:55 PM +UTC",
-            "Source": "0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4df3",
-            "Destination": "0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c46G4ga1",
-            "Value": 89.45848,
-            "Fee": {
-                "Payed": 0.011252718733085,
-                "Base": 0.009119012312,
-                "Max": 0.1813135433,
-                "Max Priority": 0.20000000238
-            },
-            "Prices": {
-                "Gas Price": 0.01543212132,
-                "OP Price": 1.21"
-            }
-        }',
-        10
-    );
-
+VALUES (
+    '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ff3',
+    35,
+    '{
+        "Hash": "0x5ca21bdbd",
+        "Status": "Success",
+        "Block": 15528230,
+        "Timestamp": "Sep-13-2022 06:33:55 PM +UTC",
+        "Source": "0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ff3",
+        "Destination": "0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c46G4ga1",
+        "Value": 0.60,
+        "Fee": {
+            "Payed": 0.011252718733085,
+            "Base": 0.009119012312,
+            "Max": 0.1813135433,
+            "Max Priority": 0.20000000238
+        },
+        "Prices": {
+            "Gas Price": 0.01543212132,
+            "OP Price": 1.09
+        }
+    }',
+    10
+);
 
 INSERT INTO
     LiquidityPool
@@ -255,26 +252,6 @@ SELECT GETUSERWALLETBALANCE('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8') FROM D
 -- Function getNumberUserLP
 SELECT GETNUMBERUSERLP('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1') FROM DUAL;
 
--- Declare Triggers present in the TornadoCash.sql file
-
--- Trigger secureValueIntegrityUser
-UPDATE Users SET valueOnWallet = -1 WHERE user_address = '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8';
-
--- Trigger secureValueIntegrityLP
-UPDATE LiquidityPool SET valueRetained = -1 WHERE lp_address = '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1';
-
--- Trigger secureValueIntegrityUsersToLP
-UPDATE UsersToLP SET user_addressFK = '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8' WHERE transaction_id = 1;
-
--- Trigger secureIntegrityDeposits
-UPDATE UsersToLP SET lp_addressFK = NULL WHERE transaction_id = 1;
-
--- Trigger secureIntegrityEncryptedNote
-UPDATE UsersToLP SET encrypted_note = NULL WHERE lp_addressFK = '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1';
-
--- Trigger transactionsLPControl
--- Check thought the execution of the Procedure joinLiquiidtyPool & leaveLiquidityPool
-
 -- Procedure joinLiquidityPool
 BEGIN
   JOINLIQUIDITYPOOL('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba4', '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1');
@@ -292,16 +269,26 @@ END;
 SELECT * FROM USERS;
 SELECT * FROM USERSTOLP;
 
+-- Declare Triggers present in the TornadoCash.sql file
 
--- Procedure printUsersInLPs
-SET SERVEROUTPUT ON;
-BEGIN
-    PRINTUSERSPERLP;
-END;
+-- Trigger secureValueIntegrityUser
+UPDATE Users SET valueOnWallet = -1 WHERE user_address = '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8';
 
--- Recursive View recursiveLPchain
-SELECT lp_address, chain_idFK FROM recursiveLPchain;
+-- Trigger secureValueIntegrityLP
+UPDATE LiquidityPool SET valueRetained = -1 WHERE lp_address = '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1';
 
+-- Trigger secureIntegrityDeposits
+UPDATE UsersToLP SET user_addressFK = '0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4ba8' WHERE transactionId = 1;
+
+-- Trigger secureIntegrityWithdrawals
+INSERT INTO UsersToLP (lp_addressFK) VALUES ('0xbb6ba66A466Ef9f31cC44C8A0D9b5c84c49A4bb1');
+
+-- Trigger secureIntegrityEncryptedNote
+INSERT INTO UsersToLP (encrypted_note) VALUES ('encrypted note');
+
+
+-- Trigger transactionsLPControl
+-- Check thought the execution of the Procedure joinLiquiidtyPool & leaveLiquidityPool
 
 -- Trigger secureTranscationDataUser (JSON)
 UPDATE Users SET transaction_historyUser = '{
