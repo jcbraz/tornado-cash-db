@@ -47,7 +47,8 @@ VALUES
                 "Ether Price": 1574.56
             }
         }',
-        1
+        1,
+        ban_history(ban_status(0, ''))
     );
 
 INSERT INTO
@@ -75,7 +76,8 @@ VALUES
                 "Ether Price": 2143.12
             }
         }',
-        1
+        1,
+        ban_history(ban_status(1, 'Violation of terms of service'))
     );
 
 INSERT INTO 
@@ -102,7 +104,8 @@ VALUES (
             "OP Price": 1.09
         }
     }',
-    10
+    10,
+    ban_history(ban_status(0, ''))
 );
 
 INSERT INTO 
@@ -129,7 +132,8 @@ VALUES (
             "OP Price": 1.09
         }
     }',
-    10
+    10,
+    ban_history(ban_status(1, 'Illegal activity association'))
 );
 
 INSERT INTO

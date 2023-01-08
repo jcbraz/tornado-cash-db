@@ -1,3 +1,10 @@
+-- Creation of types
+CREATE TYPE ban_status AS OBJECT (
+    ban_boolean NUMBER(1), -- 0 = not banned, 1 = banned
+    ban_reason VARCHAR2(255)
+);
+CREATE TYPE ban_history AS TABLE OF ban_status;
+
 -- Table struture creation
 
 CREATE TABLE Chain (
@@ -17,7 +24,8 @@ CREATE TABLE LiquidityPool (
     transaction_historyLP VARCHAR2(32767),
     chain_idFK INTEGER NOT NULL,
     PRIMARY KEY (lp_address),
-    CONSTRAINT ensure_jsonLPLP CHECK (transaction_historyLP IS JSON),
+    CONSTRAINT ensure_jsonLP CHECK (transaction_historyLP IS JSON),
+    CONSTRAINT valueRetained_check CHECK (valueRetained >= 0),
     FOREIGN KEY (chain_idFK) REFERENCES Chain(chain_id)
 );
 
@@ -26,10 +34,13 @@ CREATE TABLE Users (
     valueOnWallet FLOAT NOT NULL,
     transaction_historyUser VARCHAR2(32767),
     chain_idFK INTEGER NOT NULL,
+    banned ban_history,
     PRIMARY KEY (user_address),
     CONSTRAINT ensure_jsonUser CHECK (transaction_historyUser IS JSON),
+    CONSTRAINT valueOnWallet_check CHECK (valueOnWallet >= 0),
     FOREIGN KEY (chain_idFK) REFERENCES Chain(chain_id)
-);
+) NESTED TABLE banned STORE AS BANNED_TAB;
+
 
 
 CREATE TABLE UsersToLP (
@@ -38,7 +49,6 @@ CREATE TABLE UsersToLP (
     user_addressFK VARCHAR2(64) NOT NULL,
     lp_addressFK VARCHAR2(64)
 );
-
 
 -- PSM Section
 
@@ -112,8 +122,7 @@ CREATE OR REPLACE PROCEDURE leaveLiquidityPool(lpMixed LiquidityPool.lp_address%
         IF (GETNUMBERUSERLP(lpMixed) <> maxUsersMixed) THEN
             RAISE stillWaiting;
         ELSE
-            UPDATE UsersToLP SET encrypted_note = NULL WHERE lp_addressFK = lpMixed;
-            UPDATE UsersToLP SET lp_addressFK = NULL WHERE lp_addressFK = lpMixed;
+            UPDATE UsersToLP SET encrypted_note = NULL, lp_addressFK = NULL WHERE lp_addressFK = lpMixed;
         END IF;
     EXCEPTION
         WHEN stillWaiting THEN
@@ -122,29 +131,6 @@ CREATE OR REPLACE PROCEDURE leaveLiquidityPool(lpMixed LiquidityPool.lp_address%
     END leaveLiquidityPool;
 
 -- Triggers done
-
--- Trigger made to ensure there is a monetary system where money cannot be less then 0 on the User side.
-CREATE OR REPLACE TRIGGER secureValueIntegrityUser
-    BEFORE INSERT OR UPDATE OF valueOnWallet
-    ON Users
-    FOR EACH ROW
-    BEGIN
-        IF :new.valueOnWallet < 0 THEN
-            raise_application_error(-20100, 'Unsuficient balance to go through with the transaction');
-        END IF;
-    END;
-
-
--- Trigger made to ensure there is a monetary system where money cannot be less then 0 on the Liquidity Pool side.
-CREATE OR REPLACE TRIGGER secureValueIntegrityLP
-    BEFORE INSERT OR UPDATE OF valueRetained
-    ON LiquidityPool
-    FOR EACH ROW
-    BEGIN
-        IF :new.valueRetained < 0 THEN
-            raise_application_error(-20100, 'Something went wrong related to the Liquidity Pool balance retained');
-        END IF;
-    END;
 
 -- Trigger made to ensure that the values on the UsersToLP table cannot be inserted manually and the a procedure must be envocked to change them.
 -- Create a view for the UsersToLP table
@@ -291,33 +277,3 @@ CREATE OR REPLACE TRIGGER secureTransactionDataLP
 -- Test JSON views
 SELECT ut.transaction_historyUser.Source FROM Users ut;
 SELECT lp.transaction_historyLP.Source FROM LiquidityPool lp;
-
-
---  Object Extension Sections
-
--- Type defining
-CREATE TYPE users_type AS OBJECT (
-    user_address VARCHAR2(64),
-    valueOnWallet FLOAT,
-    transaction_historyUser VARCHAR2(32767),
-    chain_idFK INTEGER
-);
-
-CREATE TYPE rated_user AS OBJECT (
-    rated_user_address VARCHAR2(64),
-    analysed VARCHAR2(5),
-    REF users_type
-);
-
-CREATE TYPE rated_users AS TABLE OF rated_user;
-
--- Applying types
-CREATE TABLE Rating (
-    rating_time DATE,
-    unbanned_users rated_users,
-    banned_users rated_users)
-NESTED TABLE unbanned_users STORE AS unbanned_users_nt,
-NESTED TABLE banned_users STORE AS banned_users_nt;
-
-CREATE INDEX unbanned_users_idx ON unbanned_users_nt(rated_user_address);
-CREATE INDEX banned_users_idx ON banned_users_nt(rated_user_address);
