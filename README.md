@@ -1,8 +1,10 @@
 # tornado-cash-db
 
-Advanced Databases Project inspired on Tornado Cash Mechanism
+Advanced Databases Project inspired on Tornado Cash Mechanism.
 
-Project made for the class of Advanced Databases during Erasmus Semester
+Project made for the class of Advanced Databases during Erasmus Semester.
+
+Check the docs section to find a detailed explanation of each part of the project.
 
 ### Setup
 
