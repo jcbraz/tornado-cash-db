@@ -4,8 +4,6 @@ Advanced Databases Project inspired on Tornado Cash Mechanism.
 
 Project made for the class of Advanced Databases during Erasmus Semester.
 
-Check the docs section to find a detailed explanation of each part of the project.
-
 ### Setup
 
 - **In the terminal, run the command git clone https://github.com/jcbraz/tornado-cash-db.git (HTTPS)**
@@ -22,4 +20,5 @@ Check the docs section to find a detailed explanation of each part of the projec
   - In the file TornadoCash.sql, there is the main source code for the different tables, procedures, functions, triggers, etc.
   - The file insertions.sql, there are example of the structure of the values that should be inserted.
   
+*Check the docs section to find a detailed explanation of each part of the project.*
 *Enjoy!*
