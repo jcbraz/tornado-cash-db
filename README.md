@@ -11,6 +11,7 @@ Project made for the class of Advanced Databases during Erasmus Semester
 - **Setup Oracle compiler or find one online**
   - Go to the https://www.oracle.com/cloud/
   - Setup an account
+  - Create a Database
   - Choose the Autonomous Database section
   
   *This section is where the code should be compiled and where results will be displayed.*
