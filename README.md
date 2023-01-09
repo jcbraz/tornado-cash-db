@@ -21,4 +21,5 @@ Project made for the class of Advanced Databases during Erasmus Semester.
   - The file insertions.sql, there are example of the structure of the values that should be inserted.
   
 *Check the docs section to find a detailed explanation of each part of the project.*
+
 *Enjoy!*
